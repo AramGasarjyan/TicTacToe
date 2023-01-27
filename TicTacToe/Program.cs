@@ -1,177 +1,238 @@
-﻿enum Tick
+﻿namespace TicTacToe
 {
-    Empty,
-    X,
-    O
-}
-
-class Program
-{
-    const char EMPTY = '-';
-    static bool win = false;
-
-    public static void Main()
+    enum Tick
     {
-        Tick[,] grid = new Tick[3, 3];
-        FillGrid(grid, Tick.Empty);
-        PrintGrid(grid);
+        Empty,
+        X,
+        O
+    }
 
-        bool isFirstPlayer = true;
+    class Program
+    {
+        public const char EMPTY = '-';
+        public const int MATRIX_SIZE = 3;
 
-        Tick firstPlayer = Tick.X;
-        Tick secondPlayer = Tick.O;
-
-        while (!win)
+        public static void Main()
         {
-            SetTick(grid, isFirstPlayer ? firstPlayer : secondPlayer);
-            PrintGrid(grid);
+            Tick[,] grid = new Tick[MATRIX_SIZE, MATRIX_SIZE];
+            Grid.FillGrid(grid, Tick.Empty);
+            Grid.PrintGrid(grid);
 
-            if (isFirstPlayer && win)
+            Tick firstPlayer = Tick.X;
+            Tick secondPlayer = Tick.O;
+            Tick currentTick = Tick.Empty;
+            bool hasWinner = false;
+            int step = 0;
+            bool isFirstPlayer = true;
+
+            while (step < MATRIX_SIZE * MATRIX_SIZE)
             {
-                Console.WriteLine("X win");
+                GameManager.Step(grid, ref currentTick, ref firstPlayer, ref secondPlayer, ref isFirstPlayer, ref step, ref hasWinner);
+                if (hasWinner)
+                    break;
             }
-            else if (!isFirstPlayer && win)
+            GameManager.WinAction(hasWinner, step, currentTick);
+        }
+    }
+
+    struct GameManager
+    {
+        public static void Step(Tick[,] grid, ref Tick currentTick, ref Tick firstPlayer, ref Tick secondPlayer, ref bool isFirstPlayer, ref int step, ref bool hasWinner)
+        {
+            currentTick = isFirstPlayer ? firstPlayer : secondPlayer;
+            step++;
+            TickAction.InputTick(grid, currentTick, out int selectedPoint);
+            Grid.PrintGrid(grid);
+
+            TickAction.GetCoords(selectedPoint, out int i, out int j);
+            hasWinner = Grid.Check(grid, currentTick, i, j);
+            if (hasWinner)
             {
-                Console.WriteLine("0 win");
+                return;
             }
 
             isFirstPlayer = !isFirstPlayer;
         }
 
-
-
-    }
-
-    static void PrintGrid(Tick[,] grid)
-    {
-        for (int i = 0; i < grid.GetLength(0); i++)
+        public static void WinAction(bool hasWinner, int step, Tick currentTick)
         {
-            for (int j = 0; j < grid.GetLength(1); j++)
+            if (hasWinner)
             {
-                Console.Write("{0}\t", grid[i, j] == Tick.Empty ? EMPTY : grid[i, j]);
+                Console.WriteLine($"Winner is: {currentTick}");
+                return;
             }
 
-            Console.WriteLine();
-        }
-    }
-
-    static void FillGrid(Tick[,] grid, Tick tick)
-    {
-        for (int i = 0; i < grid.GetLength(0); i++)
-        {
-            for (int j = 0; j < grid.GetLength(1); j++)
+            if (step == Program.MATRIX_SIZE * Program.MATRIX_SIZE)
             {
-                grid[i, j] = tick;
+                Console.WriteLine("Draw");
             }
         }
     }
 
-    static Tick GetTick()
+    struct TickAction
     {
-        string input;
-        do
+        public static void GetCoords(int point, out int i, out int j)
         {
-            Console.Write("Please input your tick: ");
-            input = Console.ReadLine();
-        } while (input.Length > 1 || input.ToUpper() != Tick.X.ToString() || input.ToUpper() != Tick.O.ToString());
-
-        return input.ToUpper() == Tick.X.ToString() ? Tick.X : Tick.O;
-    }
-
-    static void SetTick(Tick[,] grid, Tick tick)
-    {
-        string[] inputCoords;
-        int i;
-        int j;
-        do
-        {
-            Console.Write("Input Coord (i,j): ");
-            string input = Console.ReadLine();
-            inputCoords = input.Split(',');
-        } while (!int.TryParse(inputCoords[0], out i) || !int.TryParse(inputCoords[1], out j) ||
-                 grid[i, j] != Tick.Empty);
-
-        grid[i, j] = tick;
-
-        if (CheckHorizontal(grid, tick, i, j) || CheckVertical(grid, tick, i, j) || CheckRightDiagonal(grid, tick, j) || CheckLeftDiagonal(grid, tick, j))
-        {
-
-            win = true;
-        }
-    }
-
-    static bool CheckHorizontal(Tick[,] grid, Tick tick, int i, int j)
-    {
-        for (int k = 0; k < grid.GetLength(1); k++)
-        {
-            if (k == j)
-            {
-                continue;
-            }
-
-            if (grid[i, k] != tick)
-            {
-                return false;
-            }
+            i = (point - 1) / Program.MATRIX_SIZE;
+            j = (point - 1) % Program.MATRIX_SIZE;
         }
 
-        return true;
+        static Tick GetTick()
+        {
+            string input;
+            do
+            {
+                Console.Write("Please input your tick: ");
+                input = Console.ReadLine();
+            } while (input.Length > 1 || input.ToUpper() != Tick.X.ToString() || input.ToUpper() != Tick.O.ToString());
+
+            return input.ToUpper() == Tick.X.ToString() ? Tick.X : Tick.O;
+        }
+
+        public static bool HasTick(Tick[,] grid, int point, Tick tick)
+        {
+            GetCoords(point, out int i, out int j);
+            return HasTick(grid, i, j, tick);
+        }
+
+        public static bool HasTick(Tick[,] grid, int i, int j, Tick tick)
+        {
+            return grid[i, j] == tick;
+        }
+
+        public static void InputTick(Tick[,] grid, Tick tickTemplate, out int selectedPoint)
+        {
+            do
+            {
+                Console.Write("Input point (1 - 9): ");
+                string input = Console.ReadLine();
+                selectedPoint = int.Parse(input);
+            } while (selectedPoint <= 0 || selectedPoint > Program.MATRIX_SIZE * Program.MATRIX_SIZE ||
+                     !TickAction.HasTick(grid, selectedPoint, Tick.Empty));
+
+            TickAction.SetTick(grid, selectedPoint, tickTemplate);
+        }
+
+        public static void SetTick(Tick[,] grid, int point, Tick tick)
+        {
+            GetCoords(point, out int i, out int j);
+            SetTick(grid, i, j, tick);
+        }
+
+        public static void SetTick(Tick[,] grid, int i, int j, Tick tick)
+        {
+            grid[i, j] = tick;
+        }
+
     }
 
-    static bool CheckVertical(Tick[,] grid, Tick tick, int i, int j)
+    struct Grid
     {
-        for (int k = 0; k < grid.GetLength(0); k++)
+
+        public static bool Check(Tick[,] grid, Tick tick, int i, int j)
         {
-            if (k == i)
+            return CheckHorizontal(grid, tick, i, j) || CheckVertical(grid, tick, i, j) ||
+                   CheckDiagonal(grid, tick, i, j) || CheckSecondDiagonal(grid, tick, i, j);
+        }
+
+        public static bool CheckHorizontal(Tick[,] grid, Tick tick, int i, int j)
+        {
+            for (int k = 0; k < grid.GetLength(1); k++)
             {
-                continue;
+                if (k == j)
+                {
+                    continue;
+                }
+
+                if (grid[i, k] != tick)
+                {
+                    return false;
+                }
             }
 
-            if (grid[k, j] != tick)
+            return true;
+        }
+
+        public static bool CheckVertical(Tick[,] grid, Tick tick, int i, int j)
+        {
+            for (int k = 0; k < grid.GetLength(0); k++)
             {
-                return false;
+                if (k == i)
+                {
+                    continue;
+                }
+
+                if (grid[k, j] != tick)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool CheckDiagonal(Tick[,] grid, Tick tick, int i, int j)
+        {
+            for (int k = 0; k < Program.MATRIX_SIZE; k++)
+            {
+                if (i == k && j == k)
+                {
+                    continue;
+                }
+
+                if (grid[k, k] != tick)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool CheckSecondDiagonal(Tick[,] grid, Tick tick, int i, int j)
+        {
+            for (int k = 0; k < Program.MATRIX_SIZE; k++)
+            {
+                int ii = k;
+                int jj = Program.MATRIX_SIZE - k - 1;
+
+                if (ii == i && jj == j)
+                {
+                    continue;
+                }
+
+
+                if (grid[ii, jj] != tick)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static void PrintGrid(Tick[,] grid)
+        {
+            for (int i = 0; i < grid.GetLength(0); i++)
+            {
+                for (int j = 0; j < grid.GetLength(1); j++)
+                {
+                    Console.Write("{0}\t", grid[i, j] == Tick.Empty ? Program.EMPTY : grid[i, j]);
+                }
+
+                Console.WriteLine();
             }
         }
 
-        return true;
-    }
-
-    static bool CheckRightDiagonal(Tick[,] grid, Tick tick, int j)
-    {
-        for (int k = 0; k < grid.GetLength(0); k++)
+        public static void FillGrid(Tick[,] grid, Tick tick)
         {
-            if (k == j)
+            for (int i = 0; i < grid.GetLength(0); i++)
             {
-                continue;
-            }
-
-            if (grid[k, k] != tick)
-            {
-                return false;
+                for (int j = 0; j < grid.GetLength(1); j++)
+                {
+                    grid[i, j] = tick;
+                }
             }
         }
-        return true;
-    }
-
-
-    static bool CheckLeftDiagonal(Tick[,] grid, Tick tick, int j)
-    {
-        int a = grid.GetLength(1) - 1;
-        for (int k = 0; k < grid.GetLength(0); k++)
-        {
-            if (a == j)
-            {
-                a--;
-                continue;
-            }
-
-            if (grid[k, a] != tick)
-            {
-                return false;
-            }
-            a--;
-        }
-        return true;
     }
 }
-
